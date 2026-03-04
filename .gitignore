@@ -14,4 +14,4 @@ third_party/angle-out/
 .DS_Store
 
 # Old build script at project root (moved to scripts/)
-build_angle.sh
+/build_angle.sh

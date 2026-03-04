@@ -7,9 +7,11 @@ pub fn build(b: *std.Build) void {
     const os = target.result.os.tag;
 
     // --- ANGLE library paths ---
-    // Per-platform defaults: third_party/angle-out/<platform>/
-    // Override with -Dangle-lib-path= and -Dangle-include-path= for custom locations.
-    const default_platform_dir = switch (os) {
+    // Lookup order:
+    //   1. -Dangle-lib-path= / -Dangle-include-path= (explicit override)
+    //   2. third_party/angle-out/<platform>/  (project-local)
+    //   3. ~/.local/share/angle/<platform>/   (shared system-wide)
+    const default_platform_dir: []const u8 = switch (os) {
         .macos => "macos",
         .windows => "windows",
         .linux => "linux",
@@ -20,13 +22,13 @@ pub fn build(b: *std.Build) void {
         []const u8,
         "angle-lib-path",
         "Path to directory containing ANGLE shared libraries",
-    ) orelse b.pathJoin(&.{ "third_party/angle-out", default_platform_dir, "lib" });
+    ) orelse resolveAnglePath(b, default_platform_dir, "lib");
 
     const angle_include_path = b.option(
         []const u8,
         "angle-include-path",
         "Path to ANGLE include directory (EGL/, GLES2/ headers)",
-    ) orelse b.pathJoin(&.{ "third_party/angle-out", default_platform_dir, "include" });
+    ) orelse resolveAnglePath(b, default_platform_dir, "include");
 
     // --- Build raylib with OpenGL ES 2 (for ANGLE on all platforms) ---
     const raylib_dep = b.dependency("raylib", .{
@@ -133,4 +135,26 @@ pub fn build(b: *std.Build) void {
 
     const run_step = b.step("run", "Run the application");
     run_step.dependOn(&run_cmd.step);
+}
+
+/// Resolve ANGLE path with fallback chain:
+///   1. Project-local: third_party/angle-out/<platform>/<subdir>
+///   2. Shared: ~/.local/share/angle/<platform>/<subdir>
+fn resolveAnglePath(b: *std.Build, platform: []const u8, subdir: []const u8) []const u8 {
+    // Try project-local first
+    const local_path = b.pathJoin(&.{ "third_party/angle-out", platform, subdir });
+    if (pathExists(local_path)) return local_path;
+
+    // Try shared system-wide location
+    const home = std.posix.getenv("HOME") orelse return local_path;
+    const shared_path = b.fmt("{s}/.local/share/angle/{s}/{s}", .{ home, platform, subdir });
+    if (pathExists(shared_path)) return shared_path;
+
+    // Default to project-local (let the build fail with a clear path if neither exists)
+    return local_path;
+}
+
+fn pathExists(path: []const u8) bool {
+    std.fs.cwd().access(path, .{}) catch return false;
+    return true;
 }

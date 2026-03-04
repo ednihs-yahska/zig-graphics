@@ -50,7 +50,7 @@ your-project/
         GLES2/           # OpenGL ES 2.0 headers
         GLES3/           # OpenGL ES 3.0 headers
         KHR/             # Khronos platform headers
-  .angle-build/          # ANGLE source + build working directory (gitignored)
+  .angle-build/          # ANGLE source + build (only with --local; default is ~/.cache/angle-build/)
 ```
 
 ## Step 1: Build ANGLE from Source
@@ -417,6 +417,88 @@ ANGLE builds are slow. For team/CI use:
 - Cache `third_party/angle-out/` (just the two dylibs + headers, ~8 MB per platform)
 - Pin the ANGLE commit in the build script for reproducibility
 - Don't rebuild unless you need a newer ANGLE version
+
+### Shared system-wide ANGLE build
+
+By default, `build_angle.sh` stores the ~15 GB build cache in `~/.cache/angle-build/` and installs the output libraries to `~/.local/share/angle/<platform>/`. This means multiple raylib+ANGLE projects share a single ANGLE build instead of each needing their own copy.
+
+The script also copies the output into the project-local `third_party/angle-out/<platform>/` so that existing workflows keep working.
+
+**Directory layout:**
+
+```
+~/.cache/angle-build/            # ANGLE source + depot_tools + build artifacts (~15 GB, one copy)
+~/.local/share/angle/
+  macos/
+    lib/libEGL.dylib, libGLESv2.dylib
+    include/EGL/, GLES2/, GLES3/, KHR/
+  linux/
+    lib/libEGL.so, libGLESv2.so
+    include/...
+  windows/
+    lib/libEGL.dll, libGLESv2.dll
+    include/...
+```
+
+**build.zig lookup order:**
+
+`build.zig` resolves ANGLE library and include paths using a fallback chain:
+
+1. `-Dangle-lib-path=` / `-Dangle-include-path=` (explicit override, highest priority)
+2. `third_party/angle-out/<platform>/lib/` (project-local)
+3. `~/.local/share/angle/<platform>/lib/` (shared system-wide)
+
+This means a new project just needs a `build.zig` that uses the same fallback logic — no need to copy ANGLE libraries or re-run the build script.
+
+**Opting out:**
+
+Use `--local` to keep everything inside the project directory (the old behavior):
+
+```bash
+./scripts/build_angle.sh --local metal
+```
+
+This stores the build cache in `.angle-build/` and outputs only to `third_party/angle-out/<platform>/`.
+
+**Replicating this setup on a new machine:**
+
+On a fresh machine, you only need to build ANGLE once — every raylib+ANGLE project after that reuses the shared output:
+
+```bash
+# 1. Clone your project
+git clone <your-repo-url> my-project
+cd my-project
+
+# 2. Build ANGLE (~10 min first time, shared across all projects)
+#    This puts the build cache in ~/.cache/angle-build/
+#    and installs libs to ~/.local/share/angle/macos/
+./scripts/build_angle.sh
+
+# 3. Build and run (build.zig finds the shared libs automatically)
+zig build run
+```
+
+For a **second project** on the same machine, ANGLE is already built:
+
+```bash
+git clone <other-repo-url> other-project
+cd other-project
+
+# No need to run build_angle.sh again — the shared libs exist
+zig build run
+```
+
+If the second project doesn't have the build script (e.g. it's a new project), just ensure its `build.zig` uses the same `resolveAnglePath` fallback chain to find `~/.local/share/angle/<platform>/`.
+
+**What gets committed vs what doesn't:**
+
+| Path | Committed? | Purpose |
+|---|---|---|
+| `scripts/build_angle.sh` | Yes | How to build ANGLE from source |
+| `build.zig` | Yes | Knows how to find shared ANGLE libs |
+| `third_party/angle-out/` | No (gitignored) | Project-local copy of ANGLE output |
+| `~/.cache/angle-build/` | N/A (outside repo) | Shared build cache (~15 GB) |
+| `~/.local/share/angle/` | N/A (outside repo) | Shared output libs (~8 MB) |
 
 ## Cross-Platform: Vulkan Everywhere, Metal on macOS
 
