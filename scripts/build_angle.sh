@@ -152,13 +152,18 @@ angle_enable_d3d11       = false
 angle_enable_gl          = false
 angle_enable_null        = false
 angle_enable_swiftshader = false
+GN_ARGS
 
 # Enable the selected backend
-$(case "$BACKEND" in
-    metal)  echo "angle_enable_metal  = true" ;;
-    vulkan) echo "angle_enable_vulkan = true" ;;
-    d3d11)  echo "angle_enable_d3d11  = true" ;;
-esac)
+BACKEND_GN_ARG=""
+case "$BACKEND" in
+    metal)  BACKEND_GN_ARG="angle_enable_metal  = true" ;;
+    vulkan) BACKEND_GN_ARG="angle_enable_vulkan = true" ;;
+    d3d11)  BACKEND_GN_ARG="angle_enable_d3d11  = true" ;;
+esac
+
+cat >> "$BUILD_DIR/args.gn" << GN_ARGS
+$BACKEND_GN_ARG
 GN_ARGS
 
 gn gen "$BUILD_DIR"
