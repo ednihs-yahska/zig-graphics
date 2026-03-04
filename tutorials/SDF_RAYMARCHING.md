@@ -288,6 +288,24 @@ Run with `zig build run`. You should see a red sphere on a checkerboard floor, w
 - `BeginShaderMode` / `EndShaderMode` — all draw calls between these use our shader
 - `DrawRectangle` covering the full window acts as our "fullscreen quad" — the shader runs for every pixel
 
+### Loading shaders from standalone files
+
+The tutorial above embeds the GLSL source as a Zig multiline string (`\\` syntax). This works, but for larger shaders or if you prefer editing `.glsl` files with proper syntax highlighting, you can use `@embedFile` instead:
+
+```zig
+// Embed src/shaders/raymarching.frag at compile time as a []const u8
+const fs_source = @embedFile("shaders/raymarching.frag");
+const shader = rl.LoadShaderFromMemory(null, fs_source);
+```
+
+`@embedFile` resolves paths relative to the source file's directory. So with `src/main.zig` calling `@embedFile("shaders/raymarching.frag")`, the file would live at `src/shaders/raymarching.frag`.
+
+The shader is baked into the binary at compile time — no file I/O at runtime, no need to ship the `.glsl` file alongside the executable. If you change the `.glsl` file, `zig build` recompiles automatically.
+
+Raylib also has `LoadShader(vsFileName, fsFileName)` which reads files at runtime, but `@embedFile` + `LoadShaderFromMemory` is simpler for distribution since everything is in one binary.
+
+**GLES2 reminder:** Since this project uses ANGLE with OpenGL ES 2.0, all shaders must use `#version 100`, declare `precision highp float;`, and write to `gl_FragColor` (not `out vec4` / layout-based outputs).
+
 ---
 
 ## Tutorial 2: Primitive Shapes
