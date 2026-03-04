@@ -1,0 +1,17 @@
+# Zig build artifacts
+zig-out/
+.zig-cache/
+
+# ANGLE source + build (~15 GB, rebuild with ./scripts/build_angle.sh)
+.angle-build/
+
+# ANGLE prebuilt libraries (platform-specific, ~8 MB each)
+# Uncomment the next line if you want to commit them for easier team setup:
+# !third_party/angle-out/
+third_party/angle-out/
+
+# macOS
+.DS_Store
+
+# Old build script at project root (moved to scripts/)
+build_angle.sh

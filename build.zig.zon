@@ -1,0 +1,17 @@
+.{
+    .name = .raylib_love,
+    .version = "0.0.1",
+    .fingerprint = 0xbf3f85965e5b366f,
+    .dependencies = .{
+        .raylib = .{
+            // Compatible with Zig 0.15.1+ (commit 2025-12-16)
+            .url = "git+https://github.com/raysan5/raylib#33adda198366e560afa59a806dd8db2609261e40",
+            .hash = "raylib-5.6.0-dev-whq8uGRCCgX38P2GBEH6tmBMIAYt3SxIK_VkHvIehETU",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+    },
+}
